@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+    <rosparam command="load" file="$(find recorder)/config/frames.yaml" param="recorder/frames"/>
+    <!--<include file="$(find optitrack_publisher)/launch/optitrack_publisher.launch"/>--> <!-- To be launched separatedly -->
+    <node name="recorder" pkg="recorder" type="tf_recorder.py" output="screen"/>
+</launch>

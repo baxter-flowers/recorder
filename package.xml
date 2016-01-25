@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package>
+  <name>recorder</name>
+  <version>0.0.0</version>
+  <description>Recorder for TF frames, Kinet RGB, Kinect depth and webcams</description>
+  <maintainer email="yoan.mollard@inria.fr">Yoan Mollard</maintainer>
+  <license>TODO</license>
+  <run_depend>openni_launch</run_depend>
+  <run_depend>usb_cam</run_depend>
+  <buildtool_depend>catkin</buildtool_depend>
+  <export>
+  </export>
+</package>
