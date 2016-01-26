@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="path" default="$(find recorder)/data/$(anon dataset)" />
+
+    <include file="$(find recorder)/launch/record_video.launch">
+        <arg name="path" value="$(arg path)" />
+    </include>
+
+<!--    <include file="$(find recorder)/launch/record_kinect.launch">
+        <arg name="path" value="$(arg path)" />
+    </include>
+-->
+    <include file="$(find recorder)/launch/record_tf.launch">
+        <arg name="path" value="$(arg path)" />
+    </include>
+</launch>
