@@ -44,11 +44,14 @@ class TFRecorder:
             json.dump(data, f)
 
 # Select frames to record from command line, or ROS parameters server
-# frames = argv[1:] if len(argv) > 1 else None
+# frames =
 
 try:
     frames = [frame for frame in rospy.get_param("/recorder/frames") if not frame.startswith("__")]
 except KeyError:
-    frames = None
+    if len(argv) > 1:
+        frames = argv[1:]
+    else:
+        raise RuntimeError("Please specify the frames to record in /record/frames or in argument")
 
 TFRecorder('/tmp/tf.json', frames).run()
