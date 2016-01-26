@@ -18,7 +18,7 @@ sound = rospy.get_param(rospy.get_name()+"/sound", default=False)
 path = rospy.get_param(rospy.get_name()+"/path")
 device = rospy.get_param(rospy.get_name()+"/device")
 
-rospy.loginfo("Creating new dataset under {}".format(path))
+rospy.loginfo("Creating new video dataset under {}".format(path))
 mkdir = system("mkdir -p {}".format(path))
 
 if mkdir == 0:
