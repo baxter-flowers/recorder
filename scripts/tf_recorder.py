@@ -5,10 +5,10 @@ import rospy
 import json
 import tf
 from sys import argv
+from os import system
 
 class TFRecorder:
     def __init__(self, path, frames=None, rate=20., timeout=1):
-        rospy.init_node('tf_recorder')
         self.tfl = tf.TransformListener(True, rospy.Duration(timeout))
         self.transforms = []
         self.start_time = None
@@ -43,8 +43,8 @@ class TFRecorder:
         with open(self.path, 'w') as f:
             json.dump(data, f)
 
-# Select frames to record from command line, or ROS parameters server
-# frames =
+
+rospy.init_node('tf_recorder')
 
 try:
     frames = [frame for frame in rospy.get_param("/recorder/frames") if not frame.startswith("__")]
@@ -54,4 +54,10 @@ except KeyError:
     else:
         raise RuntimeError("Please specify the frames to record in /record/frames or in argument")
 
-TFRecorder('/tmp/tf.json', frames).run()
+path = rospy.get_param(rospy.get_name()+"/path")
+
+rospy.loginfo("Creating new video dataset under {}".format(path))
+mkdir = system("mkdir -p {}".format(path))
+
+if mkdir == 0:
+    TFRecorder(path+'/frames.json', frames).run()
