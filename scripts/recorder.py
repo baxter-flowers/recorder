@@ -15,6 +15,7 @@ from cv_bridge.core import CvBridge
 from cv2 import VideoWriter
 from cv2.cv import CV_FOURCC
 from baxter_interface.camera import CameraController
+from thr_coop_assembly.msg import ActionHistoryEvent
 
 class Recorder:
     def __init__(self, path, frames=None, rate=20, timeout=1):
@@ -23,12 +24,14 @@ class Recorder:
         self.start_time = None
         self.path = path
         self.frames = frames
+        self.actions = []
         self.world = "base"
         self.rate_hz = rate
         self.rate = rospy.Rate(rate)
         self.microrate = rospy.Rate(1000)
         self.bridge = CvBridge()
         self.ready = False  # True when all components are ready
+        self.recording = False # True when all components are ready and the user asked to start
 
         # Enabled components
         self.components_enabled = {'kinect': True, 'depth': True, 'left': True, 'right': True, 'head': True}
@@ -51,7 +54,7 @@ class Recorder:
         self.head_image_sub = rospy.Subscriber('/usb_cam/image_raw', Image, self.cb_image_head, queue_size=1)
         self.kinect_rgb_sub = rospy.Subscriber('/camera/rgb/image_color', Image, self.cb_kinect_rgb, queue_size=1)
         self.kinect_depth_sub = rospy.Subscriber('/camera/depth_registered/disparity', DisparityImage, self.cb_kinect_depth, queue_size=1)
-
+        self.actions_sub = rospy.Subscriber('/thr/action_history', ActionHistoryEvent, self.cb_action_history, queue_size=100)
 
     def start_cameras(self, camera1='left_hand_camera', camera2='right_hand_camera', resolution=(1280, 800)):
         for camera in [camera1, camera2]:
@@ -102,6 +105,15 @@ class Recorder:
         self.open_writer('head')
         self._update_readiness('head')
 
+    def cb_action_history(self, action):
+        events = ['start', 'success', 'failure']
+        if self.recording:
+            self.actions.append({'time': (action.header.stamp - self.start_time).to_sec(),
+                                 'action': action.action.type,
+                                 'parameters': action.action.parameters,
+                                 'event': events[action.type],
+                                 'arm': action.side})
+
     def open_writer(self, camera):
         if not self.writers[camera]:
             self.writers[camera] = VideoWriter(path + '/' + camera + self.extension,
@@ -128,12 +140,15 @@ class Recorder:
         self.writers[camera].write(cv_image)
 
     def dump(self):
+        # Transformations (frames)
         rospy.loginfo("Generating JSON file of /tf...")
         file = self.path + '/frames.json'
         data = {"metadata": {"world": self.world, "objects": self.frames, "timestamp" : self.start_time.to_sec()}, "transforms": self.transforms}
         with open(file, 'w') as f:
             json.dump(data, f)
         rospy.loginfo("JSON generated at {}".format(file))
+
+        # Videos streams
         for camera in self.components_enabled:
             rospy.loginfo("Generating video file, side {}...".format(camera))
             if self.writers[camera]:
@@ -141,6 +156,13 @@ class Recorder:
                 rospy.loginfo("Video file side {} generated".format(camera))
             else:
                 rospy.logwarn("Cannot generate file {} or no data to save".format(camera))
+
+        # Actions
+        rospy.loginfo("Generating JSON file of actions...")
+        file = self.path + '/actions.json'
+        with open(file, 'w') as f:
+            json.dump(self.actions, f)
+        rospy.loginfo("JSON generated at {}".format(file))
 
     def wait_subscribers(self):
         rospy.loginfo('Waiting all subscribers to be ready... if it never ends check that all cameras are publishing on their topics')
@@ -151,6 +173,7 @@ class Recorder:
         self.wait_subscribers()
         if interactive:
             raw_input("Subscribers ready, press <Enter> to start recording...")
+            self.recording = True
         self.start_time = rospy.Time.now()
         rospy.loginfo("Starting recording {}...".format(str(self.frames) if self.frames is not None else "all frames"))
         try:
