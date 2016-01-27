@@ -15,8 +15,6 @@ from cv_bridge.core import CvBridge
 from cv2 import VideoWriter
 from cv2.cv import CV_FOURCC
 from baxter_interface.camera import CameraController
-import cv
-a = 0
 
 class Recorder:
     def __init__(self, path, frames=None, rate=20, timeout=1):
@@ -42,7 +40,8 @@ class Recorder:
 
         self.image = {'left': None, 'right': None, 'head': None, 'kinect': None, 'depth': None}
         self.locks = {'left': RLock(), 'right': RLock(), 'head': RLock(),  'kinect': RLock(), 'depth': RLock()}
-        self.four_cc = CV_FOURCC('h' ,'2','6', '4')
+        self.four_cc = CV_FOURCC('F' ,'M','P', '4')
+        self.extension = '.avi'
         self.writers = {'left': None, 'right': None, 'head': None, 'kinect': None, 'depth': None}
         self.formats = {'left': 'bgr8', 'right': 'bgr8', 'head': 'bgr8', 'kinect': 'bgr8', 'depth': '8UC1'} #'depth': 32FC1?}
 
@@ -66,8 +65,8 @@ class Recorder:
         with self.readiness_lock:
             not_ready = [component for component in self.components_enabled if self.components_enabled[component] and not self.components_ready[component]]
             self.ready = len(not_ready) == 0
-            if not self.ready:
-                print "Waiting", not_ready
+            #if not self.ready:
+            #    print "Waiting", not_ready
 
     def cb_clock(self, clock):
         self.clock_sub.unregister()
@@ -105,7 +104,7 @@ class Recorder:
 
     def open_writer(self, camera):
         if not self.writers[camera]:
-            self.writers[camera] = VideoWriter(path + '/' + camera + '.avi',
+            self.writers[camera] = VideoWriter(path + '/' + camera + self.extension,
                                                self.four_cc, self.rate_hz,
                                                (self.image[camera].width, self.image[camera].height),
                                                isColor=camera != 'depth')
@@ -127,10 +126,6 @@ class Recorder:
             ros_image = deepcopy(self.image[camera])
         cv_image = self.bridge.imgmsg_to_cv2(ros_image, desired_encoding=self.formats[camera])
         self.writers[camera].write(cv_image)
-        if camera=='depth':
-            global a
-            cv.SaveImage("/tmp/test{}.png".format(a), cv.fromarray(cv_image))
-            a += 1
 
     def dump(self):
         rospy.loginfo("Generating JSON file of /tf...")
