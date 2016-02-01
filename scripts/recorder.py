@@ -71,13 +71,14 @@ class Recorder:
             controller.open()
         rospy.loginfo("Cameras opened!")
 
+    def get_unready_components(self):
+        return [component for component in self.components_enabled if self.components_enabled[component] and not self.components_ready[component]]
+
     def _update_readiness(self, component):
         self.components_ready[component] = True
         with self.readiness_lock:
-            not_ready = [component for component in self.components_enabled if self.components_enabled[component] and not self.components_ready[component]]
+            not_ready = self.get_unready_components()
             self.ready = len(not_ready) == 0
-            #if not self.ready:
-            #    print "Waiting", not_ready
 
     def cb_clock(self, clock):
         self.clock_sub.unregister()
@@ -173,31 +174,37 @@ class Recorder:
         rospy.loginfo("JSON generated at {}".format(file))
 
     def wait_subscribers(self):
-        rospy.loginfo('Waiting all subscribers to be ready... if it never ends check that all cameras are publishing on their topics')
+        rospy.loginfo('Waiting all subscribers to be ready...')
+        counter = 1
         while not self.ready and not rospy.is_shutdown():
             self.microrate.sleep()
+            if counter == 0:
+                with self.readiness_lock:
+                    not_ready = self.get_unready_components()
+                rospy.loginfo("Waiting components {}...".format(str(not_ready)))
+            counter = (counter + 1) % 1000
 
-    def run(self, interactive=False):
+    def run(self):
         self.start_cameras('left_hand_camera', 'right_hand_camera', (1280, 800))
         self.wait_subscribers()
-        if interactive:
+        if not rospy.is_shutdown():
             raw_input("Subscribers ready, press <Enter> to start recording...")
             self.recording = True
-        self.start_time = rospy.Time.now()
-        rospy.loginfo("Starting recording {}...".format(str(self.frames) if self.frames is not None else "all frames"))
-        try:
-            while not rospy.is_shutdown():
-                self.save_transforms()
-                for component in self.components_enabled:
-                    self.save_image(component)
-                self.rate.sleep()
-        except rospy.exceptions.ROSInterruptException:
-            pass
-        finally:
-            self.dump()
+            self.start_time = rospy.Time.now()
+            rospy.loginfo("Starting recording ... press <Ctrl-C> to stop")
+            try:
+                while not rospy.is_shutdown():
+                    self.save_transforms()
+                    for component in self.components_enabled:
+                        self.save_image(component)
+                    self.rate.sleep()
+            except rospy.exceptions.ROSInterruptException:
+                pass
+            finally:
+                self.dump()
 
 if __name__=='__main__':
-    rospy.init_node('tf_recorder')
+    rospy.init_node('recorder')
 
     try:
         frames = rospy.get_param("/recorder/frames")
@@ -213,6 +220,6 @@ if __name__=='__main__':
     mkdir = system("mkdir -p {}".format(path))
 
     if mkdir == 0:
-        Recorder(path, frames).run(interactive=True)
+        Recorder(path, frames).run()
     else:
         rospy.logerr("Unable to create dataset path {}, mkdir returned {}".format(path, mkdir))
