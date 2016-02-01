@@ -52,8 +52,8 @@ class Recorder:
         self.right_image_sub = rospy.Subscriber('/cameras/right_hand_camera/image', Image, self.cb_image_right, queue_size=1)
         self.left_image_sub = rospy.Subscriber('/cameras/left_hand_camera/image', Image, self.cb_image_left, queue_size=1)
         self.head_image_sub = rospy.Subscriber('/usb_cam/image_raw', Image, self.cb_image_head, queue_size=1)
-        self.kinect_rgb_sub = rospy.Subscriber('/camera/rgb/image_color', Image, self.cb_kinect_rgb, queue_size=1)
-        self.kinect_depth_sub = rospy.Subscriber('/camera/depth_registered/disparity', DisparityImage, self.cb_kinect_depth, queue_size=1)
+        self.kinect_rgb_sub = rospy.Subscriber('/openni/rgb/image_color', Image, self.cb_kinect_rgb, queue_size=1)
+        self.kinect_depth_sub = rospy.Subscriber('/openni/depth_registered/disparity', DisparityImage, self.cb_kinect_depth, queue_size=1)
         self.actions_sub = rospy.Subscriber('/thr/action_history', ActionHistoryEvent, self.cb_action_history, queue_size=100)
 
     def start_cameras(self, camera1='left_hand_camera', camera2='right_hand_camera', resolution=(1280, 800)):
