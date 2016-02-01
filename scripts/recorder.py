@@ -57,11 +57,19 @@ class Recorder:
         self.actions_sub = rospy.Subscriber('/thr/action_history', ActionHistoryEvent, self.cb_action_history, queue_size=100)
 
     def start_cameras(self, camera1='left_hand_camera', camera2='right_hand_camera', resolution=(1280, 800)):
+        """
+        Start Baxter cameras. Baxter accepts 2 and only 2 opened cameras due to USB bus restrictions.
+        https://github.com/RethinkRobotics/sdk-docs/wiki/Using-the-Cameras
+        :param camera1: camera name 1
+        :param camera2: camera name 2
+        :param resolution: tuple among 1280x800, 960x600, 640x400, 480x300, 384x240, 320x200
+        """
         for camera in [camera1, camera2]:
-            rospy.loginfo("Opening camera {}...".format(camera))
+            rospy.loginfo("Opening camera {} in {}x{} pixels...".format(camera, resolution[0], resolution[1]))
             controller = CameraController(camera)
             controller.resolution = resolution
             controller.open()
+        rospy.loginfo("Cameras opened!")
 
     def _update_readiness(self, component):
         self.components_ready[component] = True
@@ -170,6 +178,7 @@ class Recorder:
             self.microrate.sleep()
 
     def run(self, interactive=False):
+        self.start_cameras('left_hand_camera', 'right_hand_camera', (1280, 800))
         self.wait_subscribers()
         if interactive:
             raw_input("Subscribers ready, press <Enter> to start recording...")
