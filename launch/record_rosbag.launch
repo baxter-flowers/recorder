@@ -1,5 +1,7 @@
 <?xml version="1.0"?>
 <launch>
+    <arg name="path" default="$(find recorder)/data/$(anon bag)" />
+
     <include file="$(find recorder)/launch/start_kinect.launch"/>
     <include file="$(find usb_cam)/launch/usb_cam.launch"/>
 
