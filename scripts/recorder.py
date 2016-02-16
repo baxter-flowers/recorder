@@ -33,8 +33,8 @@ class Recorder:
         self.ready = False  # True when all components are ready
         self.recording = False # True when all components are ready and the user asked to start
 
-        # Enabled components
-        self.components_enabled = {'kinect': True, 'depth': True, 'left': True, 'right': True, 'head': True}
+        # Enabled cameras
+        self.cameras_enabled = {'kinect': True, 'depth': True, 'left': True, 'right': True, 'head': True}
 
         # Recording is triggered when all components are ready
         self.readiness_lock = RLock()
@@ -72,7 +72,7 @@ class Recorder:
         rospy.loginfo("Cameras opened!")
 
     def get_unready_components(self):
-        return [component for component in self.components_enabled if self.components_enabled[component] and not self.components_ready[component]]
+        return [component for component in self.cameras_enabled if self.cameras_enabled[component] and not self.components_ready[component]]
 
     def _update_readiness(self, component):
         self.components_ready[component] = True
@@ -152,19 +152,20 @@ class Recorder:
         # Transformations (frames)
         rospy.loginfo("Generating JSON file of /tf...")
         file = self.path + '/frames.json'
-        data = {"metadata": {"world": self.world, "objects": self.frames, "timestamp" : self.start_time.to_sec()}, "transforms": self.transforms}
+        data = {"metadata": {"world": self.world, "objects": self.frames, "timestamp": self.start_time.to_sec()}, "transforms": self.transforms}
         with open(file, 'w') as f:
             json.dump(data, f)
         rospy.loginfo("JSON generated at {}".format(file))
 
         # Videos streams
-        for camera in self.components_enabled:
-            rospy.loginfo("Generating video file, side {}...".format(camera))
-            if self.writers[camera]:
-                self.writers[camera].release()
-                rospy.loginfo("Video file side {} generated".format(camera))
-            else:
-                rospy.logwarn("Cannot generate file {} or no data to save".format(camera))
+        for camera, enabled in self.cameras_enabled.iteritems():
+            if enabled:
+                if self.writers[camera]:
+                    rospy.loginfo("Generating video file, side {}...".format(camera))
+                    self.writers[camera].release()
+                    rospy.loginfo("Video file side {} generated".format(camera))
+                else:
+                    rospy.logwarn("Cannot generate file {} or no data to save".format(camera))
 
         # Actions
         rospy.loginfo("Generating JSON file of actions...")
@@ -195,8 +196,9 @@ class Recorder:
             try:
                 while not rospy.is_shutdown():
                     self.save_transforms()
-                    for component in self.components_enabled:
-                        self.save_image(component)
+                    for component, enabled in self.cameras_enabled.iteritems():
+                        if enabled:
+                            self.save_image(component)
                     self.rate.sleep()
             except rospy.exceptions.ROSInterruptException:
                 pass
