@@ -15,7 +15,7 @@ from cv_bridge.core import CvBridge
 from cv2 import VideoWriter
 from cv2.cv import CV_FOURCC
 from baxter_interface.camera import CameraController
-from thr_coop_assembly.msg import ActionHistoryEvent
+from thr_infrastructure_msgs.msg import ActionHistoryEvent
 
 class Recorder:
     def __init__(self, path, frames=None, rate=20, timeout=1):
