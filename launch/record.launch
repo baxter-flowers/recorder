@@ -1,6 +1,24 @@
 <?xml version="1.0"?>
 <launch>
     <arg name="path" default="$(find recorder)/data/$(anon dataset)" />
+    <arg name="kinect" default="False" />
+    <arg name="depth" default="False" />
+    <arg name="left" default="False" />
+    <arg name="right" default="False" />
+    <arg name="head" default="False" />
+    <arg name="frames" default="True" />
+    <arg name="actions" default="True" />
+    
+    <rosparam if="$(arg frames)" command="load" file="$(find recorder)/config/frames.yaml" param="recorder/frames"/>
+    
+    <rosparam param="/recorder/enabled/kinect" subst_value="True">$(arg kinect)</rosparam>
+    <rosparam param="/recorder/enabled/depth" subst_value="True">$(arg depth)</rosparam>
+    <rosparam param="/recorder/enabled/left" subst_value="True">$(arg left)</rosparam>
+    <rosparam param="/recorder/enabled/right" subst_value="True">$(arg right)</rosparam>
+    <rosparam param="/recorder/enabled/head" subst_value="True">$(arg head)</rosparam>
+    <rosparam param="/recorder/enabled/frames" subst_value="True">$(arg frames)</rosparam>
+    <rosparam param="/recorder/enabled/actions" subst_value="True">$(arg actions)</rosparam>
+    
     <node name="recorder" pkg="recorder" type="recorder.py" output="screen">
         <param name="path" value="$(arg path)"/>
     </node>

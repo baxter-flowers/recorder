@@ -18,12 +18,12 @@ from baxter_interface.camera import CameraController
 from thr_infrastructure_msgs.msg import ActionHistoryEvent
 
 class Recorder:
-    def __init__(self, path, frames=None, rate=20, timeout=1):
+    def __init__(self, path, rate=20, timeout=1):
         self.tfl = tf.TransformListener(True, rospy.Duration(timeout))
         self.transforms = []
         self.start_time = None
         self.path = path
-        self.frames = frames
+        self.frames = rospy.get_param('/recorder/frames', []) if rospy.get_param('/recorder/enabled/frames') else []
         self.actions = []
         self.world = "base"
         self.rate_hz = rate
@@ -34,13 +34,22 @@ class Recorder:
         self.recording = False # True when all components are ready and the user asked to start
 
         # Enabled cameras
-        self.cameras_enabled = {'kinect': True, 'depth': True, 'left': True, 'right': True, 'head': True}
+        self.cameras_enabled = {'kinect': rospy.get_param('/recorder/enabled/kinect', False),
+                                'depth': rospy.get_param('/recorder/enabled/depth', False),
+                                'left': rospy.get_param('/recorder/enabled/left', True),
+                                'right': rospy.get_param('/recorder/enabled/right', True),
+                                'head': rospy.get_param('/recorder/enabled/head', False)}
+
+        # Non-cameras sources to record as well
+        self.components_enabled = {'frames': rospy.get_param('/recorder/enabled/frames', True),
+                                   'actions': rospy.get_param('/recorder/enabled/actions', False)}
 
         # Recording is triggered when all components are ready
         self.readiness_lock = RLock()
         self.components_ready = {'kinect': False, 'depth': False, 'left': False, 'right': False, 'head': False,
                                  'clock': not rospy.get_param('use_sim_time', default=False)}
 
+        self.frames = rospy.get_param('/recorder/frames') if self.components_enabled['frames'] else []
         self.image = {'left': None, 'right': None, 'head': None, 'kinect': None, 'depth': None}
         self.locks = {'left': RLock(), 'right': RLock(), 'head': RLock(),  'kinect': RLock(), 'depth': RLock()}
         self.four_cc = CV_FOURCC('F' ,'M','P', '4')
@@ -149,14 +158,6 @@ class Recorder:
         self.writers[camera].write(cv_image)
 
     def dump(self):
-        # Transformations (frames)
-        rospy.loginfo("Generating JSON file of /tf...")
-        file = self.path + '/frames.json'
-        data = {"metadata": {"world": self.world, "objects": self.frames, "timestamp": self.start_time.to_sec()}, "transforms": self.transforms}
-        with open(file, 'w') as f:
-            json.dump(data, f)
-        rospy.loginfo("JSON generated at {}".format(file))
-
         # Videos streams
         for camera, enabled in self.cameras_enabled.iteritems():
             if enabled:
@@ -168,11 +169,21 @@ class Recorder:
                     rospy.logwarn("Cannot generate file {} or no data to save".format(camera))
 
         # Actions
-        rospy.loginfo("Generating JSON file of actions...")
-        file = self.path + '/actions.json'
-        with open(file, 'w') as f:
-            json.dump(self.actions, f)
-        rospy.loginfo("JSON generated at {}".format(file))
+        if self.components_enabled['actions']:
+            rospy.loginfo("Generating JSON file of actions...")
+            file = self.path + '/actions.json'
+            with open(file, 'w') as f:
+                json.dump(self.actions, f)
+            rospy.loginfo("JSON generated at {}".format(file))
+
+        # Transformations (frames)
+        if self.components_enabled['frames']:
+            rospy.loginfo("Generating JSON file of frames...")
+            file = self.path + '/frames.json'
+            data = {"metadata": {"world": self.world, "objects": self.frames, "timestamp": self.start_time.to_sec()}, "transforms": self.transforms}
+            with open(file, 'w') as f:
+                json.dump(data, f)
+            rospy.loginfo("JSON generated at {}".format(file))
 
     def wait_subscribers(self):
         rospy.loginfo('Waiting all subscribers to be ready...')
@@ -207,21 +218,12 @@ class Recorder:
 
 if __name__=='__main__':
     rospy.init_node('recorder')
-
-    try:
-        frames = rospy.get_param("/recorder/frames")
-    except KeyError:
-        if len(argv) > 1:
-            frames = [frame for frame in argv[1:] if not frame.startswith("__")]
-        else:
-            raise RuntimeError("Please specify the frames to record in /recorder/frames or in argument")
-
     path = rospy.get_param("/recorder/path", "/tmp")
 
     rospy.loginfo("Creating new empty dataset under {}".format(path))
     mkdir = system("mkdir -p {}".format(path))
 
     if mkdir == 0:
-        Recorder(path, frames).run()
+        Recorder(path).run()
     else:
         rospy.logerr("Unable to create dataset path {}, mkdir returned {}".format(path, mkdir))
