@@ -74,10 +74,12 @@ class Recorder:
         :param resolution: tuple among 1280x800, 960x600, 640x400, 480x300, 384x240, 320x200
         """
         for camera in [camera1, camera2]:
-            rospy.loginfo("Opening camera {} in {}x{} pixels...".format(camera, resolution[0], resolution[1]))
-            controller = CameraController(camera)
-            controller.resolution = resolution
-            controller.open()
+            short_name = camera.split('_')[0]
+            if self.cameras_enabled[short_name]:
+                rospy.loginfo("Opening camera {} in {}x{} pixels...".format(camera, resolution[0], resolution[1]))
+                controller = CameraController(camera)
+                controller.resolution = resolution
+                controller.open()
         rospy.loginfo("Cameras opened!")
 
     def get_unready_components(self):
@@ -125,7 +127,7 @@ class Recorder:
 
     def cb_action_history(self, action):
         events = ['start', 'success', 'failure']
-        if self.recording:
+        if self.components_enabled['actions'] and self.recording:
             self.actions.append({'time': (action.header.stamp - self.start_time).to_sec(),
                                  'action': action.action.type,
                                  'parameters': action.action.parameters,
@@ -133,7 +135,7 @@ class Recorder:
                                  'arm': action.side})
 
     def open_writer(self, camera):
-        if not self.writers[camera]:
+        if self.cameras_enabled[camera] and not self.writers[camera]:
             self.writers[camera] = VideoWriter(path + '/' + camera + self.extension,
                                                self.four_cc, self.rate_hz,
                                                (self.image[camera].width, self.image[camera].height),
@@ -206,7 +208,8 @@ class Recorder:
             rospy.loginfo("Starting recording ... press <Ctrl-C> to stop")
             try:
                 while not rospy.is_shutdown():
-                    self.save_transforms()
+                    if self.components_enabled['frames']:
+                        self.save_transforms()
                     for component, enabled in self.cameras_enabled.iteritems():
                         if enabled:
                             self.save_image(component)
