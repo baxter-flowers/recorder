@@ -1,8 +1,9 @@
 # Baxter recorder
 This node records frames (including end effectors) in JSON, cameras (including kinect and depth or other external camera) in AVI/H264 and actions (custom package) in JSON of experiments using Baxter.
 
-## Usage
-The basic usage is as follow:
+## Recording
+### Usage
+Make sure all the transform frames frames you are interested in are specified within the [config file](config/frames.yaml). Then the basic usage is as follow:
 ```
 roslaunch recorder record.launch
 ```
@@ -19,7 +20,7 @@ Subscribers ready, press <Enter> to start recording...
 ```
 The default records left_gripper, right_gripper (in frames.json), left_hand_camera (left.avi) and right_hand_camera (right.avi).
 It may also record other sources, assuming that their dependencies are installed and have started publishing:
-- Any other frame published on /tf (feature `frames`, just update the file [`frames.yaml`](config/frames.yaml and add the name of the new frames to record)
+- Any other frame published on /tf (feature `frames`, just update the file [`frames.yaml`](config/frames.yaml) and add the name of the new frames to record
 - Kinect RGB (feature `kinect`, assuming that openni_launch is publishing with the default camera name "camera")
 - Kinect Depth (feature `depth`)
 - Head camera (feature `head`, provided by an external webcam, this CANNOT be Baxter's camera since only 2 cameras can be opened at the same time)
@@ -30,7 +31,7 @@ Features can be enabled in command line:
 roslaunch recorder record.launch kinect:=true depth:=true head:=true
 ```
 
-## Warning about thr_infrastructure_msgs
+### Warning about thr_infrastructure_msgs
 This recorder also records a custom topic (actions) from a custom package.
 Using this script without noticing this warning will more likely raise an ImportError, you should comment the import as well as the subscriber declaration in that case:
 ```
@@ -40,37 +41,74 @@ Using this script without noticing this warning will more likely raise an Import
 ```
 Note that commenting this will disable the `actions` feature.
 
-## Waiting components
+### Waiting components
 The recorder checks that all recordings sources (aka components) are setup before starting recording, to make sure that no data will be empty.
 If the recorder loops indefinitely because of a non-ready component, check that it is being published (openni for the kinect for instance).
 
-## Output description
-The cameras output a video each in a dataset folder created on-the-fly, with a B&W video for the Kinect depth, and `frames.json` contains frames.
+## Using the recorded data
+### Format description
+The cameras output a video each in a dataset folder created on-the-fly and containing the following files:
 
-### Format of frames.json
+- `frames.json`: Position and orientation of each object/frame according to each time frame. It also contains the time in seconds associated to each time frame (starting at 0 second)
+- `depth.avi`: 8UC1 (B&W) H264 video of the Kinect depth
+- `head.avi`: bgr8 (colour) H264 video of Baxter's head published on `/usb_camera/image_raw` (By an additional camera since Baxter is not able to open more than 2 cameras at a time)
+- `left.avi`: bgr8 (colour) H264 video of Baxter's left arm
+- `right.avi`: bgr8 (colour) H264 video of Baxter's right arm
+- `actions.json`: history of the robot actions executed during the recording, as well as their status succeeded or failed (custom action framework)
 
-frames['metadata'] containts information about the recording:
+All the files are synchronized in this way:
+- Each time frame `i` of a video source corresponds to the frame `i` of any other video and to the `i`th element of `frames.json`
+- The time in seconds of `actions.json` corresponds to the time in seconds of `frames.json` at +/- 0.1 sec.
+
+### Format of `frames.json`
+
+If `frames` is the root of the JSON file, then `frames['metadata']` containts information about the recording:
 ```
 {'objects':
     ['right_gripper', 'left_gripper', 'base'],  # Name of the recorder objects/frames (feature 'frames')
  'timestamp': 1455645293.507784,  # Timestamp of shooting (given for information, but the recorded time starts at 0)
  'world': 'base'}  # Name of the world frame
 ```
-frames['transforms'] is a list of each time frame, e.g. at time frame 10:
-frames['transforms'][10] =
+`frames['transforms']` is a list of each time frame, e.g. at time frame 10:
+`frames['transforms'][10]` =
 ```
 {'objects':                # Dict of all requested frames, whatever they are or aren't visible
    'right_gripper': {      # First frame is the right_gripper
        'visible': True}},  # The frame right_gripper is visible at time frame 10, so the 'pose' field is available
            {'pose':                     # pose of this object, existing only if object is visible
-               [[0.5145395144762627,    # x
-                 -0.7726182517639723,   # y
-                 0.13528087874252306],  # z
-                [-0.4949455884830569,   # qx
-                 0.5162929784057031,    # qy
-                 -0.45660650551546555,  # qz
-                 0.5291322367906568]]}, # qw
+               [[0.5145395144762627,    # x position wrt the world frame specified in metadata
+                 -0.7726182517639723,   # y position wrt the world frame specified in metadata
+                 0.13528087874252306],  # z position wrt the world frame specified in metadata
+                [-0.4949455884830569,   # qx quaternion wrt the world frame specified in metadata
+                 0.5162929784057031,    # qy quaternion wrt the world frame specified in metadata
+                 -0.45660650551546555,  # qz quaternion wrt the world frame specified in metadata
+                 0.5291322367906568]]}, # qw quaternion wrt the world frame specified in metadata
    [...]                                # Other objects of this time frame are here
  'time': 0.451503039}                   # Time in seconds of time frame 10
  
 ```
+### Format of `actions.json`
+
+```
+[
+    {
+      "action": "grasp",                # Name of the action
+      "arm": "right",                   # Action client executing the action
+      "event": "start",                 # Type of event ("start", "success" or "failure")
+      "parameters": ["glass"],          # Parameters of the action
+      "time": 5.204932928               # Timestamp (synchronized with field 'time' in frame.json
+    },
+    {
+      "action": "pick",
+      "arm": "left",
+      "event": "start",
+      "parameters": ["bottle"],
+      "time": 7.381244898
+    },
+    [...]
+]
+```
+
+## Notes
+ - In the terms used by this recorder, make sure your do not mix up time frames and transform frames (tf)
+ - The action list (`actions.json`) does not contain any reference to time frames at the moment, only the time in seconds (TODO: to be fixed)
