@@ -50,15 +50,24 @@ If the recorder loops indefinitely because of a non-ready component, check that 
 The cameras output a video each in a dataset folder created on-the-fly and containing the following files:
 
 - `frames.json`: Position and orientation of each object/frame according to each time frame. It also contains the time in seconds associated to each time frame (starting at 0 second)
-- `depth.avi`: 8UC1 (B&W) H264 video of the Kinect depth
-- `head.avi`: bgr8 (colour) H264 video of Baxter's head published on `/usb_camera/image_raw` (By an additional camera since Baxter is not able to open more than 2 cameras at a time)
-- `left.avi`: bgr8 (colour) H264 video of Baxter's left arm
-- `right.avi`: bgr8 (colour) H264 video of Baxter's right arm
+- `depth.avi`: Kinect depth
+- `head.avi`: Baxter's head published on `/usb_camera/image_raw` (By an additional camera since Baxter is not able to open more than 2 cameras at a time)
+- `left.avi`: Baxter's left arm
+- `right.avi`: Baxter's right arm
 - `actions.json`: history of the robot actions executed during the recording, as well as their status succeeded or failed (custom action framework)
 
 All the files are synchronized in this way:
 - Each time frame `i` of a video source corresponds to the frame `i` of any other video and to the `i`th element of `frames.json`
 - The time in seconds of `actions.json` corresponds to the time in seconds of `frames.json` at +/- 0.1 sec.
+
+### Framerate and resolution
+
+- Object pose recordings at 20fps in `frames.json`
+- Head camera: mpeg4, H264, yuv420p, 1280x720 (16/9), bgr8 (colour), 20fps
+- Left and right cameras: mpeg4, H264, yuv420p, 1280x800 (8/5), bgr8 (colour), 20fps
+- Kinect RGB: mpeg4, H264, yuv420p, 640x480 (4:3), bgr8 (colour), 20fps
+- Kinect Depth: mpeg4, H264, yuv420p, 640x480 (4:3), 8UC1 (greyscale), 20fps
+- The framerate of 20fps can be changed in argument, if the camera source provides less images then duplicated images will be added to match the requested framerate
 
 ### Format of `frames.json`
 
