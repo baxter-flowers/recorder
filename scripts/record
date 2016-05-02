@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 import rospy
 import json
 import tf
-from sys import argv
-from os import system
+from rospkg import RosPack
 from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import Image
 from stereo_msgs.msg import DisparityImage
@@ -16,13 +14,17 @@ from cv2 import VideoWriter
 from cv2.cv import CV_FOURCC
 from baxter_interface.camera import CameraController
 from thr_infrastructure_msgs.msg import ActionHistoryEvent
+from recorder.srv import RecordingCommandRequest, RecordingCommandResponse, RecordingCommand
+from os import makedirs
+from os.path import join
 
 class Recorder:
-    def __init__(self, path, rate=20, timeout=1):
+    def __init__(self, root='/tmp', rate=20, timeout=1):
         self.tfl = tf.TransformListener(True, rospy.Duration(timeout))
         self.transforms = []
         self.start_time = None
-        self.path = path
+        self.root = root
+        self.path = '.'
         self.frames = rospy.get_param('/recorder/frames', []) if rospy.get_param('/recorder/enabled/frames') else []
         self.actions = []
         self.world = "base"
@@ -44,10 +46,13 @@ class Recorder:
         self.components_enabled = {'frames': rospy.get_param('/recorder/enabled/frames', True),
                                    'actions': rospy.get_param('/recorder/enabled/actions', False)}
 
-        # Recording is triggered when all components are ready
+        # Readiness of recording sources
         self.readiness_lock = RLock()
         self.components_ready = {'kinect': False, 'depth': False, 'left': False, 'right': False, 'head': False,
                                  'clock': not rospy.get_param('use_sim_time', default=False)}
+
+        # Triggering service
+        rospy.Service('recorder/triggering', RecordingCommand, self.cb_triggering)
 
         self.frames = rospy.get_param('/recorder/frames') if self.components_enabled['frames'] else []
         self.image = {'left': None, 'right': None, 'head': None, 'kinect': None, 'depth': None}
@@ -90,6 +95,36 @@ class Recorder:
         with self.readiness_lock:
             not_ready = self.get_unready_components()
             self.ready = len(not_ready) == 0
+
+    def cb_triggering(self, srv):
+        if srv.start:
+            if not self.recording:
+                path = join(self.root, *srv.files_hierarchy)
+                try:
+                    makedirs(path)
+                except OSError:
+                    # File exists
+                    if srv.allow_overwriting:
+                        self.path = join(self.root, path)
+                        self.recording = True
+                        return RecordingCommandResponse(success=True)
+                    else:
+                        rospy.logwarn("Attempt to overwrite {} without permission".format(path))
+                        return RecordingCommandResponse(success=False)
+                else:
+                    self.path = join(self.root, path)
+                    self.recording = True
+                    return RecordingCommandResponse(success=True)
+            else:
+                rospy.logwarn("Attempt to record a new dataset while already recording")
+                return RecordingCommandResponse(success=False)
+        else:
+            if self.recording:
+                self.recording = False
+                return RecordingCommandResponse(success=True)
+            else:
+                rospy.logwarn("Attempt to stop recording while it is not started")
+                return RecordingCommandResponse(success=False)
 
     def cb_clock(self, clock):
         self.clock_sub.unregister()
@@ -136,7 +171,7 @@ class Recorder:
 
     def open_writer(self, camera):
         if self.cameras_enabled[camera] and not self.writers[camera]:
-            self.writers[camera] = VideoWriter(path + '/' + camera + self.extension,
+            self.writers[camera] = VideoWriter(self.path + '/' + camera + self.extension,
                                                self.four_cc, self.rate_hz,
                                                (self.image[camera].width, self.image[camera].height),
                                                isColor=camera != 'depth')
@@ -173,7 +208,7 @@ class Recorder:
         # Actions
         if self.components_enabled['actions']:
             rospy.loginfo("Generating JSON file of actions...")
-            file = self.path + '/actions.json'
+            file = join(self.path, 'actions.json')
             with open(file, 'w') as f:
                 json.dump(self.actions, f)
             rospy.loginfo("JSON generated at {}".format(file))
@@ -181,7 +216,7 @@ class Recorder:
         # Transformations (frames)
         if self.components_enabled['frames']:
             rospy.loginfo("Generating JSON file of frames...")
-            file = self.path + '/frames.json'
+            file = join(self.path, 'frames.json')
             data = {"metadata": {"world": self.world, "objects": self.frames, "timestamp": self.start_time.to_sec()}, "transforms": self.transforms}
             with open(file, 'w') as f:
                 json.dump(data, f)
@@ -199,34 +234,31 @@ class Recorder:
             counter = (counter + 1) % 1000
 
     def run(self):
-        self.start_cameras('left_hand_camera', 'right_hand_camera', (1280, 800))
+        #self.start_cameras('left_hand_camera', 'right_hand_camera', (1280, 800))
         self.wait_subscribers()
-        if not rospy.is_shutdown():
-            raw_input("Subscribers ready, press <Enter> to start recording...")
-            self.recording = True
-            self.start_time = rospy.Time.now()
-            rospy.loginfo("Starting recording ... press <Ctrl-C> to stop")
-            try:
-                while not rospy.is_shutdown():
-                    if self.components_enabled['frames']:
-                        self.save_transforms()
-                    for component, enabled in self.cameras_enabled.iteritems():
-                        if enabled:
-                            self.save_image(component)
-                    self.rate.sleep()
-            except rospy.exceptions.ROSInterruptException:
-                pass
-            finally:
-                self.dump()
+        while not rospy.is_shutdown():
+            rospy.loginfo("Subscribers ready, waiting for recording signal...")
+            while not self.recording and not rospy.is_shutdown():
+                self.rate.sleep()
+            if not rospy.is_shutdown():
+                self.recording = True
+                self.start_time = rospy.Time.now()
+                rospy.loginfo("Starting recording ... press <Ctrl-C> to stop")
+                try:
+                    while not rospy.is_shutdown() and self.recording:
+                        if self.components_enabled['frames']:
+                            self.save_transforms()
+                        for component, enabled in self.cameras_enabled.iteritems():
+                            if enabled:
+                                self.save_image(component)
+                        self.rate.sleep()
+                except rospy.exceptions.ROSInterruptException:
+                    pass
+                finally:
+                    self.recording = False
+                    self.dump()
 
 if __name__=='__main__':
     rospy.init_node('recorder')
-    path = rospy.get_param("/recorder/path", "/tmp")
-
-    rospy.loginfo("Creating new empty dataset under {}".format(path))
-    mkdir = system("mkdir -p {}".format(path))
-
-    if mkdir == 0:
-        Recorder(path).run()
-    else:
-        rospy.logerr("Unable to create dataset path {}, mkdir returned {}".format(path, mkdir))
+    rospack = RosPack()
+    Recorder(join(rospack.get_path('recorder'), 'data')).run()
