@@ -19,7 +19,7 @@
     <rosparam param="/recorder/enabled/frames" subst_value="True">$(arg frames)</rosparam>
     <rosparam param="/recorder/enabled/actions" subst_value="True">$(arg actions)</rosparam>
     
-    <node name="recorder" pkg="recorder" type="recorder.py" output="screen">
+    <node name="recorder" pkg="recorder" type="record" output="screen">
         <param name="path" value="$(arg path)"/>
     </node>
 </launch>
