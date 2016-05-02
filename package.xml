@@ -5,6 +5,8 @@
   <description>Recorder for TF frames, Kinet RGB, Kinect depth and webcams</description>
   <maintainer email="yoan.mollard@inria.fr">Yoan Mollard</maintainer>
   <license>TODO</license>
+  <build_depend>message_generation</build_depend>
+  <run_depend>message_runtime</run_depend>
   <run_depend>openni_launch</run_depend>
   <run_depend>usb_cam</run_depend>
   <buildtool_depend>catkin</buildtool_depend>

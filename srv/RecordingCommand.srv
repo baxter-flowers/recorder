@@ -1,0 +1,7 @@
+bool start # stop otherwise
+
+# These values are only used when start=True
+string[] files_hierarchy
+bool allow_overwriting
+---
+bool success
