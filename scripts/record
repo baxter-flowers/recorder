@@ -57,7 +57,7 @@ class Recorder:
         self.frames = rospy.get_param('/recorder/frames') if self.components_enabled['frames'] else []
         self.image = {'left': None, 'right': None, 'head': None, 'kinect': None, 'depth': None}
         self.locks = {'left': RLock(), 'right': RLock(), 'head': RLock(),  'kinect': RLock(), 'depth': RLock()}
-        self.four_cc = CV_FOURCC('F' ,'M','P', '4')
+        self.four_cc = CV_FOURCC('F', 'M', 'P', '4')
         self.extension = '.avi'
         self.writers = {'left': None, 'right': None, 'head': None, 'kinect': None, 'depth': None}
         self.formats = {'left': 'bgr8', 'right': 'bgr8', 'head': 'bgr8', 'kinect': 'bgr8', 'depth': '8UC1'} #'depth': 32FC1?}
@@ -261,4 +261,5 @@ class Recorder:
 if __name__=='__main__':
     rospy.init_node('recorder')
     rospack = RosPack()
-    Recorder(join(rospack.get_path('recorder'), 'data')).run()
+    root = rospy.get_param('/recorder/path', join(rospack.get_path('recorder'), 'data'))
+    Recorder(root).run()
