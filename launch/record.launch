@@ -7,9 +7,10 @@
     <arg name="right" default="True" />
     <arg name="head" default="False" />
     <arg name="frames" default="True" />
+    <arg name="load_frames" default="True" />
     <arg name="actions" default="False" />
     
-    <rosparam if="$(arg frames)" command="load" file="$(find recorder)/config/frames.yaml" param="recorder/frames"/>
+    <rosparam if="$(arg load_frames)" command="load" file="$(find recorder)/config/frames.yaml" param="recorder/frames"/>
     
     <rosparam param="/recorder/enabled/kinect" subst_value="True">$(arg kinect)</rosparam>
     <rosparam param="/recorder/enabled/depth" subst_value="True">$(arg depth)</rosparam>
