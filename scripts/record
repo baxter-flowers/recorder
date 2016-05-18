@@ -195,7 +195,8 @@ class Recorder:
         with self.locks[camera]:
             ros_image = deepcopy(self.image[camera])
         cv_image = self.bridge.imgmsg_to_cv2(ros_image, desired_encoding=self.formats[camera])
-        self.writers[camera].write(cv_image)
+        with self.locks[camera]:
+            self.writers[camera].write(cv_image)
 
     def dump(self):
         # Videos streams
@@ -203,8 +204,9 @@ class Recorder:
             if enabled:
                 if self.writers[camera]:
                     rospy.loginfo("Generating video file, side {}...".format(camera))
-                    self.writers[camera].release()
-                    self.writers[camera] = None
+                    with self.locks[camera]:
+                        self.writers[camera].release()
+                        self.writers[camera] = None
                     rospy.loginfo("Video file side {} generated at {}".format(camera, self.path + '/' + camera + self.extension))
                 else:
                     rospy.logwarn("Cannot generate file {} or no data to save".format(camera))
@@ -215,6 +217,7 @@ class Recorder:
             file = join(self.path, 'actions.json')
             with open(file, 'w') as f:
                 json.dump(self.actions, f)
+            self.actions = []
             rospy.loginfo("JSON generated at {}".format(file))
 
         # Transformations (frames)
@@ -224,6 +227,7 @@ class Recorder:
             data = {"metadata": {"world": self.world, "objects": self.frames, "timestamp": self.start_time.to_sec()}, "transforms": self.transforms}
             with open(file, 'w') as f:
                 json.dump(data, f)
+            self.transforms = []
             rospy.loginfo("JSON generated at {}".format(file))
 
     def wait_subscribers(self):
