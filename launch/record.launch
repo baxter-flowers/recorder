@@ -9,6 +9,7 @@
     <arg name="frames" default="True" />
     <arg name="load_frames" default="True" />
     <arg name="actions" default="False" />
+    <arg name="compression" default="False" />
     
     <rosparam if="$(arg load_frames)" command="load" file="$(find recorder)/config/frames.yaml" param="recorder/frames"/>
     
@@ -19,10 +20,11 @@
     <rosparam param="/recorder/enabled/head" subst_value="True">$(arg head)</rosparam>
     <rosparam param="/recorder/enabled/frames" subst_value="True">$(arg frames)</rosparam>
     <rosparam param="/recorder/enabled/actions" subst_value="True">$(arg actions)</rosparam>
+    <rosparam param="/recorder/compression" subst_value="True">$(arg compression)</rosparam>
 
-    <node name="head_republisher" pkg="image_transport" type="republish" output="log" args="theora in:=/usb_cam/image_raw raw out:=/usb_cam/uncompressed"/>
-    <node name="kinect_rgb_republisher" pkg="image_transport" type="republish" output="log" args="theora in:=/openni/rgb/image_rect_color raw out:=/openni/rgb/uncompressed"/>
-    <!--<node name="kinect_depth_republisher" pkg="image_transport" type="republish" output="log" args="compressed in:=/openni/depth_registered/hw_registered/image_rect raw out:=/openni/depth/uncompressed"/>-->
+    <node if="$(arg compression)" name="head_republisher" pkg="image_transport" type="republish" output="log" args="theora in:=/usb_cam/image_raw raw out:=/usb_cam/uncompressed"/>
+    <node if="$(arg compression)" name="kinect_rgb_republisher" pkg="image_transport" type="republish" output="log" args="theora in:=/openni/rgb/image_rect_color raw out:=/openni/rgb/uncompressed"/>
+    <!--<node if="$(arg compression)" name="kinect_depth_republisher" pkg="image_transport" type="republish" output="log" args="compressed in:=/openni/depth_registered/hw_registered/image_rect raw out:=/openni/depth/uncompressed"/>-->
     
     <node name="recorder" pkg="recorder" type="record" output="screen">
         <param name="path" value="$(arg path)"/>

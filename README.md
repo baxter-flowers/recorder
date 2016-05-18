@@ -27,8 +27,9 @@ It may also record other sources, assuming that their dependencies are installed
 
 Features can be enabled in command line:
 ```
-roslaunch recorder record.launch kinect:=true depth:=true head:=true
+roslaunch recorder record.launch kinect:=true depth:=true head:=true compression:=true
 ```
+The `compression` arg allows to use compressed strams instead of raw streams to avoid overloading the network. The data is uncompressed locally only once.
 
 ## Warning about thr_infrastructure_msgs
 This recorder also records a custom topic (actions) from a custom package.
