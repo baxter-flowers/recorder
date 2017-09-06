@@ -1,3 +1,7 @@
-- right_gripper
-- left_gripper
-- base
+- tracker/human/base
+- tracker/human/shoulder_center
+- tracker/human/head
+- tracker/human/left_elbow
+- tracker/human/right_elbow
+- tracker/human/left_hand
+- tracker/human/right_hand

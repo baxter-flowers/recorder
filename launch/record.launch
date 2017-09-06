@@ -3,8 +3,8 @@
     <arg name="path" default="$(find recorder)/data/$(anon dataset)" />
     <arg name="kinect" default="False" />
     <arg name="depth" default="False" />
-    <arg name="left" default="True" />
-    <arg name="right" default="True" />
+    <arg name="left" default="False" />
+    <arg name="right" default="False" />
     <arg name="head" default="False" />
     <arg name="frames" default="True" />
     <arg name="load_frames" default="True" />
