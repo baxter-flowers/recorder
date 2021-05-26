@@ -4,6 +4,7 @@
 import rospy
 import json
 import tf
+import cv2
 from sys import argv
 from os import system
 from rosgraph_msgs.msg import Clock
@@ -12,10 +13,9 @@ from stereo_msgs.msg import DisparityImage
 from threading import RLock
 from copy import deepcopy
 from cv_bridge.core import CvBridge
-from cv2 import VideoWriter
-from cv2.cv import CV_FOURCC
 from baxter_interface.camera import CameraController
-from thr_infrastructure_msgs.msg import ActionHistoryEvent
+# from thr_infrastructure_msgs.msg import ActionHistoryEvent
+
 
 class Recorder:
     def __init__(self, path, rate=20, timeout=1):
@@ -52,7 +52,8 @@ class Recorder:
         self.frames = rospy.get_param('/recorder/frames') if self.components_enabled['frames'] else []
         self.image = {'left': None, 'right': None, 'head': None, 'kinect': None, 'depth': None}
         self.locks = {'left': RLock(), 'right': RLock(), 'head': RLock(),  'kinect': RLock(), 'depth': RLock()}
-        self.four_cc = CV_FOURCC('F' ,'M','P', '4')
+        # self.four_cc = cv.CV_FOURCC('F' ,'M','P', '4')
+        self.four_cc = cv2.VideoWriter_fourcc('F' ,'M','P', '4')
         self.extension = '.avi'
         self.writers = {'left': None, 'right': None, 'head': None, 'kinect': None, 'depth': None}
         self.formats = {'left': 'bgr8', 'right': 'bgr8', 'head': 'bgr8', 'kinect': 'bgr8', 'depth': '8UC1'} #'depth': 32FC1?}
@@ -61,9 +62,9 @@ class Recorder:
         self.right_image_sub = rospy.Subscriber('/cameras/right_hand_camera/image', Image, self.cb_image_right, queue_size=1)
         self.left_image_sub = rospy.Subscriber('/cameras/left_hand_camera/image', Image, self.cb_image_left, queue_size=1)
         self.head_image_sub = rospy.Subscriber('/usb_cam/image_raw', Image, self.cb_image_head, queue_size=1)
-        self.kinect_rgb_sub = rospy.Subscriber('/openni/rgb/image_color', Image, self.cb_kinect_rgb, queue_size=1)
-        self.kinect_depth_sub = rospy.Subscriber('/openni/depth_registered/disparity', DisparityImage, self.cb_kinect_depth, queue_size=1)
-        self.actions_sub = rospy.Subscriber('/thr/action_history', ActionHistoryEvent, self.cb_action_history, queue_size=100)
+        self.kinect_rgb_sub = rospy.Subscriber('/camera/rgb/image_color', Image, self.cb_kinect_rgb, queue_size=1)
+        self.kinect_depth_sub = rospy.Subscriber('/camera/depth_registered/disparity', DisparityImage, self.cb_kinect_depth, queue_size=1)
+        # self.actions_sub = rospy.Subscriber('/thr/action_history', ActionHistoryEvent, self.cb_action_history, queue_size=100)
 
     def start_cameras(self, camera1='left_hand_camera', camera2='right_hand_camera', resolution=(1280, 800)):
         """
@@ -136,7 +137,7 @@ class Recorder:
 
     def open_writer(self, camera):
         if self.cameras_enabled[camera] and not self.writers[camera]:
-            self.writers[camera] = VideoWriter(path + '/' + camera + self.extension,
+            self.writers[camera] = cv2.VideoWriter(path + '/' + camera + self.extension,
                                                self.four_cc, self.rate_hz,
                                                (self.image[camera].width, self.image[camera].height),
                                                isColor=camera != 'depth')
