@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
-    <include file="$(find openni_launch)/launch/openni_registered.launch">
-        <arg name="camera" value="openni" />
+    <include file="$(find openni_launch)/launch/openni.launch">
+        <arg name="camera" value="camera" />
     </include>
 
     <node name="image_view_kinect" pkg="image_view" type="image_view" respawn="false" output="screen">
@@ -14,3 +14,4 @@
         <param name="autosize" value="false" />
     </node>
 </launch>
+
