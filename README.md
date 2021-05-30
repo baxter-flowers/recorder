@@ -1,5 +1,13 @@
 # Baxter recorder
-This node records frames (including end effectors) in JSON, cameras (including kinect and depth or other external camera) in AVI/H264 and actions (custom package) in JSON of experiments using Baxter.
+This node records frames (including end effectors) in JSON, cameras (including kinect and depth or other external camera) in AVI/H264.
+
+## Pre-requirement
+
+- Install [Baxter SDK Dependencies](https://sdk.rethinkrobotics.com/wiki/Workstation_Setup)
+
+- Install KinectV1 driver, such as Openni (default in [start_kinect.launch](https://github.com/baxter-flowers/recorder/blob/master/launch/start_kinect.launch)) or [libfreenect](https://github.com/OpenKinect/libfreenect)
+
+- OpenCV3 (not support OpenCV2, if you must use OpenCV2，please use [this branch](https://a-reference-link-needed))
 
 ## Recording
 ### Usage
@@ -24,22 +32,11 @@ It may also record other sources, assuming that their dependencies are installed
 - Kinect RGB (feature `kinect`, assuming that openni_launch is publishing with the default camera name "camera")
 - Kinect Depth (feature `depth`)
 - Head camera (feature `head`, provided by an external webcam, this CANNOT be Baxter's camera since only 2 cameras can be opened at the same time)
-- Actions (feature `actions`, see the warning betlow)
 
 Features can be enabled in command line:
 ```
 roslaunch recorder record.launch kinect:=true depth:=true head:=true
 ```
-
-### Warning about thr_infrastructure_msgs
-This recorder also records a custom topic (actions) from a custom package.
-Using this script without noticing this warning will more likely raise an ImportError, you should comment the import as well as the subscriber declaration in that case:
-```
-#from thr_infrastructure_msgs.msg import ActionHistoryEvent
-...
-#self.actions_sub = rospy.Subscriber('/thr/action_history', ActionHistoryEvent, self.cb_action_history, queue_size=100)
-```
-Note that commenting this will disable the `actions` feature.
 
 ### Waiting components
 The recorder checks that all recordings sources (aka components) are setup before starting recording, to make sure that no data will be empty.
@@ -54,11 +51,9 @@ The cameras output a video each in a dataset folder created on-the-fly and conta
 - `head.avi`: Baxter's head published on `/usb_camera/image_raw` (By an additional camera since Baxter is not able to open more than 2 cameras at a time)
 - `left.avi`: Baxter's left arm
 - `right.avi`: Baxter's right arm
-- `actions.json`: history of the robot actions executed during the recording, as well as their status succeeded or failed (custom action framework)
 
 All the files are synchronized in this way:
 - Each time frame `i` of a video source corresponds to the frame `i` of any other video and to the `i`th element of `frames.json`
-- The time in seconds of `actions.json` corresponds to the time in seconds of `frames.json` at +/- 0.1 sec.
 
 ### Framerate and resolution
 
@@ -96,28 +91,6 @@ If `frames` is the root of the JSON file, then `frames['metadata']` containts in
  'time': 0.451503039}                   # Time in seconds of time frame 10
  
 ```
-### Format of `actions.json`
-
-```
-[
-    {
-      "action": "grasp",                # Name of the action
-      "arm": "right",                   # Action client executing the action
-      "event": "start",                 # Type of event ("start", "success" or "failure")
-      "parameters": ["glass"],          # Parameters of the action
-      "time": 5.204932928               # Timestamp (synchronized with field 'time' in frame.json
-    },
-    {
-      "action": "pick",
-      "arm": "left",
-      "event": "start",
-      "parameters": ["bottle"],
-      "time": 7.381244898
-    },
-    [...]
-]
-```
 
 ## Notes
  - In the terms used by this recorder, make sure your do not mix up time frames and transform frames (tf)
- - The action list (`actions.json`) does not contain any reference to time frames at the moment, only the time in seconds (TODO: to be fixed)

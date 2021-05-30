@@ -7,7 +7,6 @@
     <arg name="right" default="True" />
     <arg name="head" default="False" />
     <arg name="frames" default="True" />
-    <arg name="actions" default="False" />
     
     <rosparam if="$(arg frames)" command="load" file="$(find recorder)/config/frames.yaml" param="recorder/frames"/>
     
@@ -17,7 +16,6 @@
     <rosparam param="/recorder/enabled/right" subst_value="True">$(arg right)</rosparam>
     <rosparam param="/recorder/enabled/head" subst_value="True">$(arg head)</rosparam>
     <rosparam param="/recorder/enabled/frames" subst_value="True">$(arg frames)</rosparam>
-    <rosparam param="/recorder/enabled/actions" subst_value="True">$(arg actions)</rosparam>
     
     <node name="recorder" pkg="recorder" type="recorder.py" output="screen">
         <param name="path" value="$(arg path)"/>

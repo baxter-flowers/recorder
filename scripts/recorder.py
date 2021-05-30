@@ -4,6 +4,7 @@
 import rospy
 import json
 import tf
+import cv2
 from sys import argv
 from os import system
 from rosgraph_msgs.msg import Clock
@@ -12,10 +13,7 @@ from stereo_msgs.msg import DisparityImage
 from threading import RLock
 from copy import deepcopy
 from cv_bridge.core import CvBridge
-from cv2 import VideoWriter
-from cv2.cv import CV_FOURCC
 from baxter_interface.camera import CameraController
-from thr_infrastructure_msgs.msg import ActionHistoryEvent
 
 class Recorder:
     def __init__(self, path, rate=20, timeout=1):
@@ -24,7 +22,6 @@ class Recorder:
         self.start_time = None
         self.path = path
         self.frames = rospy.get_param('/recorder/frames', []) if rospy.get_param('/recorder/enabled/frames') else []
-        self.actions = []
         self.world = "base"
         self.rate_hz = rate
         self.rate = rospy.Rate(rate)
@@ -41,8 +38,7 @@ class Recorder:
                                 'head': rospy.get_param('/recorder/enabled/head', False)}
 
         # Non-cameras sources to record as well
-        self.components_enabled = {'frames': rospy.get_param('/recorder/enabled/frames', True),
-                                   'actions': rospy.get_param('/recorder/enabled/actions', False)}
+        self.components_enabled = {'frames': rospy.get_param('/recorder/enabled/frames', True)}
 
         # Recording is triggered when all components are ready
         self.readiness_lock = RLock()
@@ -52,7 +48,8 @@ class Recorder:
         self.frames = rospy.get_param('/recorder/frames') if self.components_enabled['frames'] else []
         self.image = {'left': None, 'right': None, 'head': None, 'kinect': None, 'depth': None}
         self.locks = {'left': RLock(), 'right': RLock(), 'head': RLock(),  'kinect': RLock(), 'depth': RLock()}
-        self.four_cc = CV_FOURCC('F' ,'M','P', '4')
+        # self.four_cc = cv.CV_FOURCC('F' ,'M','P', '4')
+        self.four_cc = cv2.VideoWriter_fourcc('F' ,'M','P', '4')
         self.extension = '.avi'
         self.writers = {'left': None, 'right': None, 'head': None, 'kinect': None, 'depth': None}
         self.formats = {'left': 'bgr8', 'right': 'bgr8', 'head': 'bgr8', 'kinect': 'bgr8', 'depth': '8UC1'} #'depth': 32FC1?}
@@ -61,9 +58,8 @@ class Recorder:
         self.right_image_sub = rospy.Subscriber('/cameras/right_hand_camera/image', Image, self.cb_image_right, queue_size=1)
         self.left_image_sub = rospy.Subscriber('/cameras/left_hand_camera/image', Image, self.cb_image_left, queue_size=1)
         self.head_image_sub = rospy.Subscriber('/usb_cam/image_raw', Image, self.cb_image_head, queue_size=1)
-        self.kinect_rgb_sub = rospy.Subscriber('/openni/rgb/image_color', Image, self.cb_kinect_rgb, queue_size=1)
-        self.kinect_depth_sub = rospy.Subscriber('/openni/depth_registered/disparity', DisparityImage, self.cb_kinect_depth, queue_size=1)
-        self.actions_sub = rospy.Subscriber('/thr/action_history', ActionHistoryEvent, self.cb_action_history, queue_size=100)
+        self.kinect_rgb_sub = rospy.Subscriber('/camera/rgb/image_color', Image, self.cb_kinect_rgb, queue_size=1)
+        self.kinect_depth_sub = rospy.Subscriber('/camera/depth_registered/disparity', DisparityImage, self.cb_kinect_depth, queue_size=1)
 
     def start_cameras(self, camera1='left_hand_camera', camera2='right_hand_camera', resolution=(1280, 800)):
         """
@@ -125,18 +121,9 @@ class Recorder:
         self.open_writer('head')
         self._update_readiness('head')
 
-    def cb_action_history(self, action):
-        events = ['start', 'success', 'failure']
-        if self.components_enabled['actions'] and self.recording:
-            self.actions.append({'time': (action.header.stamp - self.start_time).to_sec(),
-                                 'action': action.action.type,
-                                 'parameters': action.action.parameters,
-                                 'event': events[action.type],
-                                 'arm': action.side})
-
     def open_writer(self, camera):
         if self.cameras_enabled[camera] and not self.writers[camera]:
-            self.writers[camera] = VideoWriter(path + '/' + camera + self.extension,
+            self.writers[camera] = cv2.VideoWriter(path + '/' + camera + self.extension,
                                                self.four_cc, self.rate_hz,
                                                (self.image[camera].width, self.image[camera].height),
                                                isColor=camera != 'depth')
@@ -169,14 +156,6 @@ class Recorder:
                     rospy.loginfo("Video file side {} generated".format(camera))
                 else:
                     rospy.logwarn("Cannot generate file {} or no data to save".format(camera))
-
-        # Actions
-        if self.components_enabled['actions']:
-            rospy.loginfo("Generating JSON file of actions...")
-            file = self.path + '/actions.json'
-            with open(file, 'w') as f:
-                json.dump(self.actions, f)
-            rospy.loginfo("JSON generated at {}".format(file))
 
         # Transformations (frames)
         if self.components_enabled['frames']:
