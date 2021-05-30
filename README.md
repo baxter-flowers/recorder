@@ -7,7 +7,7 @@ This node records frames (including end effectors) in JSON, cameras (including k
 
 - Install KinectV1 driver, such as Openni (default in [start_kinect.launch](https://github.com/baxter-flowers/recorder/blob/master/launch/start_kinect.launch)) or [libfreenect](https://github.com/OpenKinect/libfreenect)
 
-- OpenCV3 (not support OpenCV2, if you must use OpenCV2，please use [this branch](https://a-reference-link-needed))
+- OpenCV3 (not support OpenCV2, if you must use OpenCV2，please use [this branch](https://github.com/baxter-flowers/recorder/tree/openCV2))
 
 ## Recording
 ### Usage
